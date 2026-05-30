@@ -1,21 +1,19 @@
-import * as bip39 from 'bip39'
-import { randomBytes, bytesToHex } from '@/lib/wallet/crypto'
+import { generateMnemonic as _generateMnemonic, validateMnemonic as _validateMnemonic, mnemonicToSeedSync as _mnemonicToSeedSync } from '@scure/bip39'
+import { wordlist } from '@scure/bip39/wordlists/english.js'
 
 const ENTROPY_BITS = 128
 
 export function generateMnemonic(): string {
-  const entropy = randomBytes(ENTROPY_BITS / 8)
-  return bip39.entropyToMnemonic(bytesToHex(entropy))
+  return _generateMnemonic(wordlist, ENTROPY_BITS)
 }
 
 export function validateMnemonic(mnemonic: string): boolean {
-  return bip39.validateMnemonic(mnemonic.trim().toLowerCase())
+  return _validateMnemonic(mnemonic.trim().toLowerCase(), wordlist)
 }
 
 export function mnemonicToSeed(mnemonic: string): Uint8Array {
   const m = mnemonic.trim().toLowerCase()
-  const seedBuffer = bip39.mnemonicToSeedSync(m, '')
-  return new Uint8Array(seedBuffer)
+  return _mnemonicToSeedSync(m)
 }
 
 export function getWordCount(mnemonic: string): number {

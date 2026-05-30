@@ -4,10 +4,12 @@ import { ArrowLeft, Upload, FileText } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWalletStore } from '@/store/walletStore'
 import VerifyBadge from '@/components/VerifyBadge'
+import NetworkSelector from '@/components/NetworkSelector'
 import { validateMnemonic } from '@/lib/wallet/bip39'
 import { parseImportFile } from '@/lib/wallet/export'
 import type { WalletKey } from '@/lib/wallet/bip86'
 import type { VerificationResult } from '@/lib/wallet/verify'
+import type { NetworkName } from '@/lib/wallet/networks'
 
 type Tab = 'seed' | 'file'
 
@@ -15,6 +17,7 @@ export default function ImportWallet() {
   const navigate = useNavigate()
   const { importWallet } = useWalletStore()
   const [tab, setTab] = useState<Tab>('seed')
+  const [network, setNetwork] = useState<NetworkName>('mainnet')
   const [seedInput, setSeedInput] = useState('')
   const [importedKey, setImportedKey] = useState<WalletKey | null>(null)
   const [importedVerification, setImportedVerification] = useState<VerificationResult | null>(null)
@@ -31,7 +34,7 @@ export default function ImportWallet() {
       return
     }
     try {
-      const wk = importWallet(phrase, 'mainnet')
+      const wk = importWallet(phrase, network)
       setImportedKey(wk)
       setImportedVerification(useWalletStore.getState().verification)
       toast.success('Wallet imported successfully')
@@ -88,6 +91,7 @@ export default function ImportWallet() {
 
           {tab === 'seed' && (
             <div className="space-y-4">
+              <NetworkSelector value={network} onChange={setNetwork} />
               <div>
                 <label className="block text-sm font-medium text-gray-700">Seed Phrase</label>
                 <textarea

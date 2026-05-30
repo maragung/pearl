@@ -6,8 +6,10 @@ import { useWalletStore } from '@/store/walletStore'
 import SeedDisplay from '@/components/SeedDisplay'
 import SeedVerify from '@/components/SeedVerify'
 import VerifyBadge from '@/components/VerifyBadge'
+import NetworkSelector from '@/components/NetworkSelector'
 import type { WalletKey } from '@/lib/wallet/bip86'
 import type { VerificationResult } from '@/lib/wallet/verify'
+import type { NetworkName } from '@/lib/wallet/networks'
 
 type Step = 'password' | 'seed' | 'verify' | 'complete'
 
@@ -15,12 +17,13 @@ export default function CreateWallet() {
   const navigate = useNavigate()
   const { createWallet } = useWalletStore()
   const [step, setStep] = useState<Step>('password')
+  const [network, setNetwork] = useState<NetworkName>('mainnet')
   const [localMnemonic, setLocalMnemonic] = useState('')
   const [localWalletKey, setLocalWalletKey] = useState<WalletKey | null>(null)
   const [localVerification, setLocalVerification] = useState<VerificationResult | null>(null)
 
   const handleCreate = (pw: string) => {
-    const w = createWallet('mainnet', pw)
+    const w = createWallet(network, pw)
     setLocalMnemonic(w.mnemonic)
     setLocalWalletKey(w)
     setLocalVerification(useWalletStore.getState().verification)
@@ -60,7 +63,7 @@ export default function CreateWallet() {
       <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8">
         <div className="mx-auto max-w-md space-y-6">
           {step === 'password' && (
-            <PasswordStep onNext={handleCreate} />
+            <PasswordStep network={network} onNetworkChange={setNetwork} onNext={handleCreate} />
           )}
           {step === 'seed' && localMnemonic && (
             <div className="space-y-4">
@@ -101,7 +104,15 @@ export default function CreateWallet() {
   )
 }
 
-function PasswordStep({ onNext }: { onNext: (password: string) => void }) {
+function PasswordStep({
+  network,
+  onNetworkChange,
+  onNext,
+}: {
+  network: NetworkName
+  onNetworkChange: (n: NetworkName) => void
+  onNext: (password: string) => void
+}) {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
 
@@ -127,6 +138,7 @@ function PasswordStep({ onNext }: { onNext: (password: string) => void }) {
           your seed phrase.
         </p>
       </div>
+      <NetworkSelector value={network} onChange={onNetworkChange} />
       <div>
         <label className="block text-sm font-medium text-gray-700">Password</label>
         <input

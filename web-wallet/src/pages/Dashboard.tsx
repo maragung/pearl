@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Download, RefreshCw, LogOut, CheckCircle, XCircle, Server, Wifi, WifiOff, Shuffle, Lock } from 'lucide-react'
+import { Download, RefreshCw, LogOut, CheckCircle, XCircle, Server, Wifi, WifiOff, Shuffle, Lock, ChevronDown, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWallet } from '@/hooks/useWallet'
 import { NETWORKS } from '@/lib/wallet/networks'
@@ -23,14 +23,11 @@ export default function Dashboard() {
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const [savePassword, setSavePassword] = useState('')
   const [saved, setSaved] = useState(false)
+  const [showAdvanced, setShowAdvanced] = useState(false)
 
   useEffect(() => {
-    if (!walletKey) {
-      navigate('/')
-      return
-    }
-    checkServer()
-  }, [walletKey, navigate, checkServer])
+    if (!walletKey) navigate('/')
+  }, [walletKey, navigate])
 
   if (!walletKey || !mnemonic) return null
 
@@ -50,26 +47,24 @@ export default function Dashboard() {
     try {
       const { verification: v } = verifyWalletDerivation(mnemonic, net)
       setReVerifyResult(v)
-      if (v.passed) {
-        toast.success('JS verification passed')
-      } else {
-        toast.error('JS verification failed')
-      }
-    } catch (err) {
+      if (v.passed) toast.success('JS verification passed')
+      else toast.error('JS verification failed')
+    } catch {
       toast.error('Re-verification failed')
     }
   }
 
   const handleServerVerify = async () => {
+    if (!serverStatus?.available) {
+      toast.error('Server not connected. Click Connect first.')
+      return
+    }
     try {
       const result = await crossCheckWithServer(mnemonic, walletKey.address)
       if (result) {
         setServerVerifyResult(result)
-        if (result.passed) {
-          toast.success('Server cross-check: MATCH')
-        } else {
-          toast.error('Server cross-check: MISMATCH')
-        }
+        if (result.passed) toast.success('Server cross-check: MATCH')
+        else toast.error('Server cross-check: MISMATCH')
       } else {
         toast.error('Server not available')
       }
@@ -79,13 +74,13 @@ export default function Dashboard() {
   }
 
   const handleDeriveXMSS = async () => {
+    if (!serverStatus?.available || !serverStatus?.xmss) {
+      toast.error('XMSS requires server with --xmss flag')
+      return
+    }
     try {
       const result = await deriveXMSSAddress(mnemonic)
-      if (result) {
-        toast.success('XMSS address derived')
-      } else {
-        toast.error('Server XMSS not available')
-      }
+      if (result) toast.success('XMSS address derived')
     } catch {
       toast.error('XMSS derivation failed')
     }
@@ -136,7 +131,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Save dialog */}
         {showSaveDialog && (
           <div className="rounded-xl border bg-yellow-50 p-4 shadow-sm">
             <h3 className="mb-2 text-sm font-semibold text-gray-900">Encrypt & Save Wallet</h3>
@@ -173,35 +167,6 @@ export default function Dashboard() {
           <AddressCard walletKey={walletKey} network={net} />
         </div>
 
-        {/* Server Status */}
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Server className="h-4 w-4 text-gray-500" />
-              <span className="text-sm font-medium text-gray-700">Go API Server</span>
-            </div>
-            <div className="flex items-center gap-2">
-              {checkingServer ? (
-                <span className="flex items-center gap-1 text-xs text-gray-500">
-                  <RefreshCw className="h-3 w-3 animate-spin" /> Checking...
-                </span>
-              ) : serverStatus?.available ? (
-                <span className="flex items-center gap-1 text-xs text-green-600">
-                  <Wifi className="h-3 w-3" /> Connected ({serverStatus.network})
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 text-xs text-gray-400">
-                  <WifiOff className="h-3 w-3" /> Not available
-                </span>
-              )}
-              <button onClick={checkServer} className="rounded-md p-1 text-gray-400 hover:text-gray-600">
-                <RefreshCw className="h-3 w-3" />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Cross-Check */}
         <div className="rounded-xl border bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-gray-900">Cross-Check Verification</h2>
@@ -224,60 +189,15 @@ export default function Dashboard() {
             ))}
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              onClick={handleReVerify}
-              className="inline-flex items-center gap-1.5 rounded-md border bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-              Re-verify (JS)
-            </button>
-            <button
-              onClick={handleServerVerify}
-              disabled={!serverStatus?.available}
-              className="inline-flex items-center gap-1.5 rounded-md border bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40"
-            >
-              <Server className="h-3.5 w-3.5" />
-              Cross-check (Go)
-            </button>
-          </div>
-
-          {serverVerifyResult && (
-            <div className={`mt-3 rounded-lg p-3 text-xs ${serverVerifyResult.passed ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-              {serverVerifyResult.description}
-            </div>
-          )}
-        </div>
-
-        {/* XMSS Section */}
-        <div className="rounded-xl border bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold text-gray-900">Post-Quantum (XMSS) Address</h2>
-          <p className="mb-4 text-sm text-gray-600">
-            Derive an address with XMSS post-quantum tapscript commitment.
-            Requires the Go API server running with --xmss flag.
-          </p>
           <button
-            onClick={handleDeriveXMSS}
-            disabled={!serverStatus?.available || !serverStatus?.xmss}
-            className="inline-flex items-center gap-1.5 rounded-md border bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+            onClick={handleReVerify}
+            className="mt-4 inline-flex items-center gap-1.5 rounded-md border bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
           >
-            <Shuffle className="h-4 w-4" />
-            Derive XMSS Address
+            <RefreshCw className="h-3.5 w-3.5" />
+            Re-verify (JS)
           </button>
-          {xmssAddress && (
-            <div className="mt-3 rounded-lg bg-gray-50 p-3">
-              <p className="text-xs text-gray-500 mb-1">XMSS Address (with PQ tapscript)</p>
-              <p className="break-all font-mono text-sm text-gray-900">{xmssAddress}</p>
-            </div>
-          )}
-          {(!serverStatus?.xmss && serverStatus?.available) && (
-            <p className="mt-2 text-xs text-amber-600">
-              Start server with --xmss to enable XMSS support.
-            </p>
-          )}
         </div>
 
-        {/* Export */}
         <div className="rounded-xl border bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-gray-900">Export Wallet</h2>
@@ -296,7 +216,6 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* Derivation Details */}
         <div className="rounded-xl border bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-sm font-semibold text-gray-900">Derivation Details</h2>
           <div className="grid grid-cols-2 gap-3 text-xs">
@@ -334,6 +253,99 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        <button
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="flex w-full items-center justify-between rounded-xl border bg-white p-4 text-left shadow-sm hover:bg-gray-50"
+        >
+          <div className="flex items-center gap-2">
+            <Server className="h-4 w-4 text-gray-500" />
+            <span className="text-sm font-medium text-gray-700">Advanced: Go API Server</span>
+          </div>
+          {showAdvanced ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
+        </button>
+
+        {showAdvanced && (
+          <div className="space-y-4">
+            <div className="rounded-xl border bg-white p-4 shadow-sm">
+              <p className="mb-3 text-xs text-gray-500">
+                Optionally connect to the Go API server for XMSS post-quantum addresses and
+                cross-check verification against the official Go implementation.
+                Requires <code className="rounded bg-gray-100 px-1 font-mono">./bin/server</code> running on port 8447.
+              </p>
+
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-600">Status:</span>
+                <div className="flex items-center gap-2">
+                  {checkingServer ? (
+                    <span className="flex items-center gap-1 text-xs text-gray-500">
+                      <RefreshCw className="h-3 w-3 animate-spin" /> Checking...
+                    </span>
+                  ) : serverStatus?.available ? (
+                    <span className="flex items-center gap-1 text-xs text-green-600">
+                      <Wifi className="h-3 w-3" /> Connected ({serverStatus.network})
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-xs text-gray-400">
+                      <WifiOff className="h-3 w-3" /> Disconnected
+                    </span>
+                  )}
+                  <button
+                    onClick={checkServer}
+                    className="inline-flex items-center gap-1 rounded-md border bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Connect
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {serverStatus?.available && (
+              <>
+                <div className="rounded-xl border bg-white p-4 shadow-sm">
+                  <h3 className="mb-2 text-xs font-semibold text-gray-900">Go Cross-Check</h3>
+                  <p className="mb-2 text-xs text-gray-500">
+                    Verify the address matches the official Go binary derivation.
+                  </p>
+                  <button
+                    onClick={handleServerVerify}
+                    className="inline-flex items-center gap-1.5 rounded-md border bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    <Server className="h-3.5 w-3.5" />
+                    Cross-check with Go
+                  </button>
+                  {serverVerifyResult && (
+                    <div className={`mt-2 rounded-lg p-2 text-xs ${serverVerifyResult.passed ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                      {serverVerifyResult.description}
+                    </div>
+                  )}
+                </div>
+
+                {serverStatus.xmss && (
+                  <div className="rounded-xl border bg-white p-4 shadow-sm">
+                    <h3 className="mb-2 text-xs font-semibold text-gray-900">XMSS Post-Quantum Address</h3>
+                    <p className="mb-2 text-xs text-gray-500">
+                      Derive an address with XMSS post-quantum tapscript commitment.
+                    </p>
+                    <button
+                      onClick={handleDeriveXMSS}
+                      className="inline-flex items-center gap-1.5 rounded-md border bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      <Shuffle className="h-3.5 w-3.5" />
+                      Derive XMSS Address
+                    </button>
+                    {xmssAddress && (
+                      <div className="mt-2 rounded-lg bg-gray-50 p-2">
+                        <p className="text-xs text-gray-500 mb-0.5">XMSS Address (with PQ tapscript)</p>
+                        <p className="break-all font-mono text-xs text-gray-900">{xmssAddress}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

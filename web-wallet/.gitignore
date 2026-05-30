@@ -1,0 +1,5 @@
+node_modules/
+dist/
+public/pearl-wallet.wasm
+public/wasm_exec.js
+*.local

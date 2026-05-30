@@ -23,12 +23,17 @@ export default function CreateWallet() {
   const [localVerification, setLocalVerification] = useState<VerificationResult | null>(null)
 
   const handleCreate = (pw: string) => {
-    const w = createWallet(network, pw)
-    setLocalMnemonic(w.mnemonic)
-    setLocalWalletKey(w)
-    setLocalVerification(useWalletStore.getState().verification)
-    toast.success('Wallet created successfully')
-    setStep('seed')
+    try {
+      const w = createWallet(network, pw)
+      setLocalMnemonic(w.mnemonic)
+      setLocalWalletKey(w)
+      setLocalVerification(useWalletStore.getState().verification)
+      toast.success('Wallet created successfully')
+      setStep('seed')
+    } catch (err) {
+      console.error('Failed to create wallet:', err)
+      toast.error('Failed to create wallet. Please try again.')
+    }
   }
 
   const handleVerifySuccess = () => {
